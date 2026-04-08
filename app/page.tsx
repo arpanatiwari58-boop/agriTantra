@@ -8,17 +8,17 @@ import { CropAllocation, OptResult, ValResult } from "./types/dashboard";
 import { CropName, SolveResponse } from "./types/api";
 
 /* ─── CONFIG ───────────────────────────────────────────────── */
-const API_BASE = "https://backend-ydip.onrender.com/";
+const API_BASE = "hhttps://python-project.sphirontech.com/";
 
 /* ─── DATA ──────────────────────────────────────────────────── */
 const CROPS: Array<{ name: CropName; cost: number; color: string; emoji: string }> = [
-  { name: "LR Rice (Sub1)",     cost: 50000, color: "#E8A045", emoji: "🌾" },
-  { name: "HR Rice (Basmati)",  cost: 62000, color: "#D4893A", emoji: "🌾" },
-  { name: "Maize",              cost: 40000, color: "#F2C94C", emoji: "🌽" },
-  { name: "Soybean",            cost: 36000, color: "#6BAF5C", emoji: "🫘" },
-  { name: "Kodo Millet",        cost: 22000, color: "#A0C878", emoji: "🌿" }, // unchanged
-  { name: "Black Gram (Urad)",  cost: 26000, color: "#8B7355", emoji: "🫘" },
-  { name: "Moong Dal",          cost: 27000, color: "#9DC45A", emoji: "🌱" },
+  { name: "LR Rice (Sub1)", cost: 50000, color: "#E8A045", emoji: "🌾" },
+  { name: "HR Rice (Basmati)", cost: 62000, color: "#D4893A", emoji: "🌾" },
+  { name: "Maize", cost: 40000, color: "#F2C94C", emoji: "🌽" },
+  { name: "Soybean", cost: 36000, color: "#6BAF5C", emoji: "🫘" },
+  { name: "Kodo Millet", cost: 22000, color: "#A0C878", emoji: "🌿" }, // unchanged
+  { name: "Black Gram (Urad)", cost: 26000, color: "#8B7355", emoji: "🫘" },
+  { name: "Moong Dal", cost: 27000, color: "#9DC45A", emoji: "🌱" },
 ];
 
 async function runModel(land: number, budget: number, epsilon: number): Promise<OptResult> {
@@ -79,10 +79,10 @@ export default function WDRODashboard() {
     setPhase("solving");
     try {
       const modelResult = await runModel(l, b, epsilon);
-      
+
       // Save allocation for ValidationSection
       localStorage.setItem("current_allocation", JSON.stringify(modelResult.allocationArray));
-      
+
       setResult(modelResult);
       setPhase("result");
     } catch (error) {

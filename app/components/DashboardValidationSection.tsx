@@ -5,7 +5,7 @@ import { FlaskConical, ChevronRight, Loader2, BarChart3, Info } from "lucide-rea
 import { ValResult, OptResult } from "../types/dashboard";
 import { ValidationResponse, ScenarioData, CropName } from "../types/api";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "https://python-project.sphirontech.com/";
 
 function fmt(v: number) {
   return Math.abs(v) >= 100000
