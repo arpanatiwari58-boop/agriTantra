@@ -8,7 +8,7 @@ import { CropAllocation, OptResult, ValResult } from "./types/dashboard";
 import { CropName, SolveResponse } from "./types/api";
 
 /* ─── CONFIG ───────────────────────────────────────────────── */
-const API_BASE = "hhttps://python-project.sphirontech.com/";
+const API_BASE = "https://python-project.sphirontech.com/";
 
 /* ─── DATA ──────────────────────────────────────────────────── */
 const CROPS: Array<{ name: CropName; cost: number; color: string; emoji: string }> = [
