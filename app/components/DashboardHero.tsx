@@ -24,7 +24,7 @@ export default function DashboardHero({ phaseIdx }: DashboardHeroProps) {
             <Sprout size={16} color="#fff" />
           </div>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2B1A", letterSpacing: -0.3 }}>KrisiBuddhiman</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2B1A", letterSpacing: -0.3 }}>AgriTantra</div>
             <div style={{ fontSize: 10, color: "#8A9688", letterSpacing: 1, textTransform: "uppercase" }}>WDRO · Crop Intelligence</div>
           </div>
         </div>

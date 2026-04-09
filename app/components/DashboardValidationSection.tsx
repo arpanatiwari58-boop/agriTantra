@@ -144,7 +144,7 @@ export default function DashboardValidationSection({ phase, result, validation, 
                 <input
                   type="range"
                   min={0}
-                  max={50}
+                  max={20}
                   step={1}
                   value={shiftPerc}
                   onChange={(e) => setShiftPerc(Math.min(50, Math.max(0, Number(e.target.value) || 0)))}
