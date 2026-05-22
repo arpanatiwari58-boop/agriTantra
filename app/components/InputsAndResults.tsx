@@ -1,32 +1,99 @@
 "use client";
 
-import { ChangeEvent } from "react";
+import { ChangeEvent, useState, useEffect } from "react";
 import {
   Leaf, Wallet, ShieldAlert, Loader2,
   BarChart3, TrendingDown, Minus, TrendingUp,
   CheckCircle2, FlaskConical, ChevronRight
 } from "lucide-react";
-import { OptResult } from "../types/dashboard";
+import { OptResult, CropAllocation } from "../types/dashboard";
+import { CropName, SolveResponse } from "../types/api";
 
 const fmt = (v: number) => Math.abs(v) >= 100000
   ? `Rs ${(v / 100000).toFixed(2)}L`
   : `Rs ${v.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 
-interface InputsAndResultsProps {
-  land: string;
-  setLand: (v: string) => void;
-  budget: string;
-  setBudget: (v: string) => void;
-  epsilon: number;
-  setEpsilon: (v: number) => void;
-  phase: "input" | "solving" | "result" | "validating" | "validated";
-  optimize: () => void;
-  result: OptResult | null;
-  animP: { min: number; mean: number; max: number };
+const API_BASE = "http://localhost:5000";
+
+const CROPS: Array<{ name: CropName; cost: number; color: string; emoji: string }> = [
+  { name: "LR Rice (Sub1)", cost: 50000, color: "#E8A045", emoji: "🌾" },
+  { name: "HR Rice (Basmati)", cost: 62000, color: "#D4893A", emoji: "🌾" },
+  { name: "Maize", cost: 40000, color: "#F2C94C", emoji: "🌽" },
+  { name: "Soybean", cost: 36000, color: "#6BAF5C", emoji: "🫘" },
+  { name: "Kodo Millet", cost: 22000, color: "#A0C878", emoji: "🌿" },
+  { name: "Black Gram (Urad)", cost: 26000, color: "#8B7355", emoji: "🫘" },
+  { name: "Moong Dal", cost: 27000, color: "#9DC45A", emoji: "🌱" },
+];
+
+async function runModel(land: number, budget: number, epsilon: number): Promise<OptResult> {
+  const res = await fetch(`${API_BASE}/solve`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ land, budget, epsilon })
+  });
+  if (!res.ok) throw new Error(`Solve failed with ${res.status}`);
+  const data: SolveResponse = await res.json();
+
+  const allocationMap = data.allocation ?? {};
+  const allocationArray = CROPS.map(c => allocationMap[c.name] ?? 0);
+
+  const crops: CropAllocation[] = CROPS
+    .map((c, idx) => ({ ...c, area: allocationArray[idx] }))
+    .filter(c => c.area > 0.001)
+    .map(c => ({ name: c.name, area: c.area, color: c.color, emoji: c.emoji }));
+
+  return {
+    crops,
+    minProfit: data.metrics.min_profit,
+    meanProfit: data.metrics.mean_profit ?? data.metrics.objective_value,
+    maxProfit: data.metrics.max_profit ?? data.metrics.objective_value,
+    totalLand: crops.reduce((s, c) => s + c.area, 0),
+    status: data.status,
+    allocationMap,
+    allocationArray
+  };
 }
 
-export default function InputsAndResults(props: InputsAndResultsProps) {
-  const { land, setLand, budget, setBudget, epsilon, setEpsilon, phase, optimize, result, animP } = props;
+export default function InputsAndResults({ onResult }: { onResult?: (res: OptResult) => void }) {
+  const [land, setLand] = useState("4");
+  const [budget, setBudget] = useState("400000");
+  const [epsilon, setEpsilon] = useState(5);
+  const [phase, setPhase] = useState<"input" | "solving" | "result" | "validating" | "validated">("input");
+  const [result, setResult] = useState<OptResult | null>(null);
+  const [animP, setAnimP] = useState({ min: 0, mean: 0, max: 0 });
+
+  useEffect(() => {
+    if (!result || phase !== "result") return;
+    let step = 0;
+    const iv = setInterval(() => {
+      step++; const t = 1 - Math.pow(1 - step / 60, 3);
+      setAnimP({ min: result.minProfit * t, mean: result.meanProfit * t, max: result.maxProfit * t });
+      if (step >= 60) clearInterval(iv);
+    }, 20);
+    return () => clearInterval(iv);
+  }, [result, phase]);
+
+  async function optimize() {
+    const l = parseFloat(land), b = parseFloat(budget);
+    if (!l || !b) return;
+    setPhase("solving");
+    try {
+      const modelResult = await runModel(l, b, epsilon);
+
+      setResult(modelResult);
+      setPhase("result");
+      
+      // Notify parent to propagate result down to validation components
+      if (onResult) {
+        onResult(modelResult);
+      }
+    } catch (error) {
+      console.error("Optimization failed:", error);
+      setPhase("input"); // Reset on error
+      alert("Failed to connect to the optimization server. Please ensure the backend is running at https://project-backend-g8h7.onrender.com");
+    }
+  }
+
   const maxArea = result ? Math.max(...result.crops.map(c => c.area)) : 1;
 
   // COST = np.array([48000, 54000, 30000, 32000, 22000, 30000, 30000], dtype=float)
@@ -49,211 +116,163 @@ export default function InputsAndResults(props: InputsAndResultsProps) {
   const handleNumber = (setter: (v: string) => void) => (e: ChangeEvent<HTMLInputElement>) => setter(e.target.value);
 
   return (
-    <div style={{ maxWidth: 960, margin: "0 auto", padding: "32px 40px 40px" }}>
-      {/* Inputs */}
-      <div style={{ marginBottom: 40 }}>
+    <div style={{ maxWidth: 960, margin: "0 auto", padding: "16px 40px 40px" }}>
+      {/* Inputs Control Panel */}
+      <div style={{
+        background: "#fff",
+        borderRadius: 24,
+        padding: 32,
+        border: "1px solid #E8E2D8",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.03)",
+        marginBottom: 40
+      }}>
         <div style={{ marginBottom: 24 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1C2B1A", margin: "0 0 4px" }}>
-            {result ? "Adjust Farm Parameters" : "Enter Your Farm Details"}
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1C2B1A", margin: "0 0 6px" }}>
+            {result ? "Adjust Farm Parameters" : "Farm Configuration"}
           </h2>
-          <p style={{ fontSize: 13, color: "#6B7A69", margin: 0 }}>Provide your available land and capital to generate a robust seasonal crop plan</p>
+          <p style={{ fontSize: 13, color: "#6B7A69", margin: 0 }}>Define your bounds to generate a robust allocation plan.</p>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 24 }}>
           {/* Land */}
-          <div style={{ background: "#fff", borderRadius: 20, padding: 28, border: "1px solid #E8E2D8", boxShadow: "0 2px 12px rgba(44,90,44,0.06)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 12, background: "#F0F9EE", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Leaf size={18} color="#2D6A2D" />
-              </div>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2B1A" }}>Total Farm Land</div>
-                <div style={{ fontSize: 12, color: "#8A9688" }}>Available area for cultivation</div>
-              </div>
-            </div>
-            <div style={{ position: "relative", marginBottom: 14 }}>
-              <input type="number" value={land} onChange={handleNumber(setLand)} disabled={phase === "solving"}
-                style={{ width: "100%", boxSizing: "border-box", background: "#F8F6F2", border: "2px solid #E8E2D8", borderRadius: 12, padding: "14px 56px 14px 18px", fontSize: 28, fontWeight: 800, color: "#1C2B1A", outline: "none", fontFamily: "inherit" }} />
-              <span style={{ position: "absolute", right: 18, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "#8A9688", fontWeight: 600 }}>ha</span>
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              {[1, 2, 4, 8].map(v => (
-                <button key={v} onClick={() => setLand(String(v))} style={{ flex: 1, padding: "9px 0", borderRadius: 10, border: `2px solid ${land === String(v) ? "#2D6A2D" : "#E8E2D8"}`, background: land === String(v) ? "#F0F9EE" : "#fff", color: land === String(v) ? "#2D6A2D" : "#8A9688", fontSize: 13, fontWeight: 700, cursor: "pointer", transition: "all 0.2s" }}>{v} ha</button>
-              ))}
-            </div>
+          <div>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "#1C2B1A", marginBottom: 8 }}>
+              <Leaf size={16} color="#2D6A2D" /> Total Land (ha)
+            </label>
+            <input 
+              type="number" 
+              value={land} 
+              onChange={handleNumber(setLand)} 
+              disabled={phase === "solving"}
+              style={{ width: "100%", boxSizing: "border-box", background: "#F8F6F2", border: "1px solid #E8E2D8", borderRadius: 12, padding: "12px 16px", fontSize: 20, fontWeight: 700, color: "#1C2B1A", outline: "none", fontFamily: "inherit" }} 
+            />
           </div>
 
           {/* Budget */}
-          <div style={{ background: "#fff", borderRadius: 20, padding: 28, border: "1px solid #E8E2D8", boxShadow: "0 2px 12px rgba(44,90,44,0.06)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 12, background: "#FFF8EE", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Wallet size={18} color="#D4893A" />
-              </div>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2B1A" }}>Total Budget</div>
-                <div style={{ fontSize: 12, color: "#8A9688" }}>Available capital for this season</div>
-              </div>
-            </div>
-            <div style={{ position: "relative", marginBottom: 14 }}>
-              <input type="number" value={budget} onChange={handleNumber(setBudget)} disabled={phase === "solving"}
-                style={{ width: "100%", boxSizing: "border-box", background: "#F8F6F2", border: "2px solid #E8E2D8", borderRadius: 12, padding: "14px 56px 14px 18px", fontSize: 28, fontWeight: 800, color: "#1C2B1A", outline: "none", fontFamily: "inherit" }} />
-              <span style={{ position: "absolute", right: 18, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "#8A9688", fontWeight: 600 }}>Rs</span>
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              {[300000, 600000, 900000, 1200000].map(v => (
-                <button key={v} onClick={() => setBudget(String(v))} style={{ flex: 1, padding: "9px 0", borderRadius: 10, border: `2px solid ${budget === String(v) ? "#D4893A" : "#E8E2D8"}`, background: budget === String(v) ? "#FFF8EE" : "#fff", color: budget === String(v) ? "#D4893A" : "#8A9688", fontSize: 12, fontWeight: 700, cursor: "pointer", transition: "all 0.2s" }}>{v >= 100000 ? `${v / 100000}L` : v}</button>
-              ))}
-            </div>
+          <div>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "#1C2B1A", marginBottom: 8 }}>
+              <Wallet size={16} color="#D4893A" /> Total Budget (Rs)
+            </label>
+            <input 
+              type="number" 
+              value={budget} 
+              onChange={handleNumber(setBudget)} 
+              disabled={phase === "solving"}
+              style={{ width: "100%", boxSizing: "border-box", background: "#F8F6F2", border: "1px solid #E8E2D8", borderRadius: 12, padding: "12px 16px", fontSize: 20, fontWeight: 700, color: "#1C2B1A", outline: "none", fontFamily: "inherit" }} 
+            />
           </div>
         </div>
-        {/* here make a table to show the cost of cultivation for each crop .table should be horizontal,in the first row show the crops and in the show row show there cost*/}
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 12, background: "#f6f6f6", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <FlaskConical size={18} color="#D4893A" />
-              </div>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2B1A" }}>Cultivation Costs per Crop</div>
-                <div style={{ fontSize: 12, color: "#8A9688" }}>Reference costs for each crop (per hectare)</div>
-              </div>
-            </div>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 400 }}>
-                <thead>
-                  <tr>
-                    {crops.map(crop => (
-                      <th key={crop} style={{ textAlign: "left", padding: "12px 16px", background: "#fffcfc", color: "#1C2B1A", fontSize: 13, fontWeight: 600, borderBottom: "2px solid #E8E2D8" }}>{crop}</th>
-                                          ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    {cost.map((c, idx) => (
-                      <td key={idx} style={{ padding: "12px 16px", borderBottom: "1px solid #E8E2D8", fontSize: 13, color: "#6B7A69",background: "#fff" }}>{fmt(c)} / ha</td>
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>  
-
-        
 
         {/* Epsilon */}
-        <div style={{ background: "#fff", borderRadius: 20, padding: 28, border: "1px solid #E8E2D8", boxShadow: "0 2px 12px rgba(44,90,44,0.06)", marginBottom: 20, transition: "all 0.3s" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 12, background: "#EEF2FF", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <ShieldAlert size={18} color="#4F46E5" />
-              </div>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2B1A" }}>Risk Profile (ε)</div>
-                <div style={{ fontSize: 12, color: "#8A9688" }}>Robustness against market volatility</div>
-              </div>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 20, fontWeight: 800, color: "#4F46E5" }}>{epsilon.toLocaleString()}</div>
-              <div style={{ fontSize: 10, fontWeight: 800, color: epsilon < 10000 ? "#DC2626" : epsilon > 20000 ? "#16A34A" : "#D97706", textTransform: "uppercase", letterSpacing: 0.5 }}>
-                {epsilon < 10000 ? "Aggressive Strategy" : epsilon > 20000 ? "Safe / Conservative" : "Balanced Robustness"}
-              </div>
+        <div style={{ marginBottom: 28, padding: "20px 24px", background: "#F8F6F2", borderRadius: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "#1C2B1A" }}>
+              <ShieldAlert size={16} color="#4F46E5" /> Risk Profile (ε: {epsilon.toFixed(1)})
+            </label>
+            <div style={{
+              fontSize: 10, fontWeight: 700, padding: "4px 8px", borderRadius: 8,
+              background: epsilon < 3.4 ? "#FFF5F2" : epsilon > 6.6 ? "#F0F9EE" : "#FFF8EE",
+              color: epsilon < 3.4 ? "#DC2626" : epsilon > 6.6 ? "#16A34A" : "#D97706",
+            }}>
+              {epsilon < 3.4 ? "AGGRESSIVE" : epsilon > 6.6 ? "CONSERVATIVE" : "BALANCED"}
             </div>
           </div>
           <input
-            type="range" min="1000" max="30000" step="500" value={epsilon}
-            onChange={(e) => setEpsilon(parseInt(e.target.value))}
+            type="range" min="0" max="5" step="0.2"
+            value={epsilon} onChange={(e) => setEpsilon(parseFloat(e.target.value))}
             disabled={phase === "solving"}
             style={{ width: "100%", height: 6, borderRadius: 3, background: "#E8E2D8", appearance: "none", cursor: "pointer", outline: "none" }}
           />
-          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10 }}>
-            <span style={{ fontSize: 11, color: "#8A9688", fontWeight: 600 }}>HIGH RISK</span>
-            <span style={{ fontSize: 11, color: "#8A9688", fontWeight: 600 }}>HIGH ROBUSTNESS</span>
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
+            <span style={{ fontSize: 11, color: "#8A9688", fontWeight: 500 }}>High Risk</span>
+            <span style={{ fontSize: 11, color: "#8A9688", fontWeight: 500 }}>High Robustness</span>
           </div>
         </div>
 
-        <button onClick={optimize} disabled={phase === "solving"} style={{ width: "100%", padding: "18px 0", background: phase === "solving" ? "#E8E2D8" : "linear-gradient(135deg, #2D6A2D 0%, #4CAF50 100%)", border: "none", borderRadius: 16, fontSize: 15, fontWeight: 800, color: phase === "solving" ? "#8A9688" : "#fff", cursor: phase === "solving" ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, letterSpacing: 0.3, boxShadow: phase === "solving" ? "none" : "0 4px 20px rgba(45,106,45,0.35)", transition: "all 0.3s" }}>
-          {phase === "solving" ? (<><Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} />Running Optimization...</>) : (<><BarChart3 size={18} />{result ? "Recalculate Optimal Crop Plan" : "Generate Optimal Crop Plan"}<ChevronRight size={16} /></>)}
+        <button 
+          onClick={
+            // setResult(null);
+            optimize 
+          } 
+          disabled={phase === "solving"} 
+          style={{ 
+            width: "100%", padding: "16px 0", 
+            background: phase === "solving" ? "#E8E2D8" : "#2D6A2D", 
+            border: "none", borderRadius: 14, fontSize: 15, fontWeight: 700, 
+            color: phase === "solving" ? "#8A9688" : "#fff", cursor: phase === "solving" ? "not-allowed" : "pointer", 
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8, transition: "all 0.2s" 
+          }}>
+          {phase === "solving" ? (
+            <><Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> Running...</>
+          ) : (
+            <><BarChart3 size={18} /> {result ? "Recalculate Plan" : "Generate Plan"}</>
+          )}
         </button>
       </div>
 
       {/* Results */}
       {(phase === "result" || phase === "validating" || phase === "validated") && result && (
-        <div>
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 16 }}>
-              <div>
-                <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1C2B1A", margin: "0 0 2px" }}>Optimization Complete</h2>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: "#F0F9EE", borderRadius: 20, border: "1px solid #C8E6C9" }}>
-                <CheckCircle2 size={14} color="#2D6A2D" />
-                <span style={{ fontSize: 12, color: "#2D6A2D", fontWeight: 700 }}>WDRO Optimal</span>
-              </div>
+        <div style={{ 
+          background: "#fff", 
+          borderRadius: 24, 
+          padding: 32, 
+          border: "1px solid #E8E2D8", 
+          boxShadow: "0 4px 20px rgba(0,0,0,0.03)" 
+        }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 24 }}>
+            <div>
+              <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1C2B1A", margin: "0 0 4px" }}>Optimization Strategy</h2>
+              <span style={{ fontSize: 13, color: "#6B7A69" }}>Calculated Cultivation Cost: <strong style={{color: "#D4893A"}}>{fmt(totalCost)}</strong></span>
             </div>
-            <div style={{ background: "#FFF8EE", borderRadius: 16, padding: "18px 24px", border: "1px solid #FFE4B0", display: "inline-flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-              <FlaskConical size={16} color="#D4893A" />
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                <span style={{ fontSize: 11, color: "#0a0a0a", letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 600 }}>Estimated Cultivation Cost</span>
-                <div style={{ fontSize: 20, fontWeight: 800, color: "#0e0e0d" }}>{fmt(totalCost)}</div>
-              </div>
-            </div>
-
-            {/* <div style={{ fontSize: 14, fontWeight: 600, color: "#1C2B1A", marginBottom: 12 }}>Estimated Total Cultivation Cost: <strong style={{ color: "#D4893A" }}>{fmt(totalCost)}</strong></div>  */}
-
-
-
-
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
-              {[
-                { label: "Worst Case", val: animP.min, icon: <TrendingDown size={16} />, accent: "#DC6040", bg: "#FFF5F2", border: "#FFD5C8" },
-                { label: "Expected", val: animP.mean, icon: <Minus size={16} />, accent: "#D4893A", bg: "#FFFBF0", border: "#FFE4B0" },
-                { label: "Best Case", val: animP.max, icon: <TrendingUp size={16} />, accent: "#2D6A2D", bg: "#F0F9EE", border: "#B8DDB8" },
-              ].map(item => (
-                <div key={item.label} style={{ background: item.bg, borderRadius: 18, padding: "22px 24px", border: `1px solid ${item.border}`, boxShadow: "0 2px 10px rgba(0,0,0,0.04)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 7, color: item.accent, marginBottom: 12 }}>
-                    {item.icon}
-                    <span style={{ fontSize: 11, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 600 }}>{item.label}</span>
-                  </div>
-                  <div style={{ fontSize: 26, fontWeight: 800, color: item.accent, letterSpacing: -0.5 }}>{fmt(item.val)}</div>
-                  <div style={{ fontSize: 11, color: item.accent, opacity: 0.6, marginTop: 4 }}>Projected season profit</div>
-                </div>
-              ))}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: "#F0F9EE", borderRadius: 20, border: "1px solid #C8E6C9" }}>
+              <CheckCircle2 size={14} color="#2D6A2D" />
+              <span style={{ fontSize: 12, color: "#2D6A2D", fontWeight: 700 }}>Optimal</span>
             </div>
           </div>
 
-          <div style={{ background: "#fff", borderRadius: 20, padding: 28, border: "1px solid #E8E2D8", boxShadow: "0 2px 12px rgba(44,90,44,0.06)", marginBottom: 0 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#1C2B1A" }}>Recommended Crop Allocation</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 32 }}>
+            {[
+              { label: "Worst Case", val: animP.min, icon: <TrendingDown size={16} />, accent: "#DC6040", bg: "#FFF5F2", border: "#FFD5C8" },
+              { label: "Expected", val: animP.mean, icon: <Minus size={16} />, accent: "#D4893A", bg: "#FFFBF0", border: "#FFE4B0" },
+              { label: "Best Case", val: animP.max, icon: <TrendingUp size={16} />, accent: "#2D6A2D", bg: "#F0F9EE", border: "#B8DDB8" },
+            ].map(item => (
+              <div key={item.label} style={{ background: item.bg, borderRadius: 16, padding: "16px 20px", border: `1px solid ${item.border}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, color: item.accent, marginBottom: 8 }}>
+                  {item.icon}
+                  <span style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase", fontWeight: 700 }}>{item.label}</span>
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: item.accent }}>{fmt(item.val)}</div>
+              </div>
+            ))}
+          </div>
+
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2B1A" }}>Recommended Crop Allocation</div>
               <div style={{ fontSize: 12, color: "#8A9688" }}>Total: <strong style={{ color: "#1C2B1A" }}>{result.totalLand.toFixed(2)} ha</strong></div>
             </div>
-            <div style={{ display: "flex", height: 14, borderRadius: 7, overflow: "hidden", marginBottom: 20, gap: 2 }}>
+            
+            <div style={{ display: "flex", height: 12, borderRadius: 6, overflow: "hidden", marginBottom: 24, gap: 2 }}>
               {result.crops.map(crop => (
-                <div key={crop.name} style={{ height: "100%", borderRadius: 4, width: `${(crop.area / result.totalLand) * 100}%`, background: crop.color, transition: "width 1s cubic-bezier(0.16,1,0.3,1)" }} />
+                <div key={crop.name} style={{ height: "100%", width: `${(crop.area / result.totalLand) * 100}%`, background: crop.color, transition: "width 1s cubic-bezier(0.16,1,0.3,1)" }} />
               ))}
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px 24px" }}>
               {result.crops.map(crop => (
-                <div key={crop.name} style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  <div style={{ fontSize: 22, width: 32, textAlign: "center", flexShrink: 0 }}>{crop.emoji}</div>
+                <div key={crop.name} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ fontSize: 20, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", background: "#F8F6F2", borderRadius: 8 }}>
+                    {crop.emoji}
+                  </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                       <span style={{ fontSize: 13, fontWeight: 600, color: "#1C2B1A" }}>{crop.name}</span>
-                      <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-                        <span style={{ fontSize: 12, color: "#8A9688" }}>{((crop.area / result.totalLand) * 100).toFixed(0)}%</span>
-                        <span style={{ fontSize: 13, fontWeight: 800, color: crop.color }}>{crop.area.toFixed(3)} ha</span>
-                      </div>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: crop.color }}>{crop.area.toFixed(2)} ha</span>
                     </div>
-                    <div style={{ height: 7, background: "#F4F1EB", borderRadius: 4, overflow: "hidden" }}>
-                      <div style={{ height: "100%", borderRadius: 4, background: crop.color, width: `${(crop.area / maxArea) * 100}%`, transition: "width 1s cubic-bezier(0.16,1,0.3,1)" }} />
+                    <div style={{ height: 4, background: "#F4F1EB", borderRadius: 2, overflow: "hidden" }}>
+                      <div style={{ height: "100%", background: crop.color, width: `${(crop.area / maxArea) * 100}%`, transition: "width 1s ease" }} />
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: "flex", gap: 14, marginTop: 20, flexWrap: "wrap", paddingTop: 18, borderTop: "1px solid #F0EBE0" }}>
-              {result.crops.map(crop => (
-                <div key={crop.name} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <div style={{ width: 10, height: 10, borderRadius: 3, background: crop.color }} />
-                  <span style={{ fontSize: 11, color: "#8A9688" }}>{crop.name.split(" ")[0]}</span>
                 </div>
               ))}
             </div>
