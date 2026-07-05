@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { OptResult } from "../types/dashboard";
 import { BacktestResponse, BacktestRequest, CropName } from "../types/api";
 import { Loader2, TrendingUp, History, CloudSun, AlertCircle, CheckCircle2 } from "lucide-react";
+import { useOptimization } from "../context/OptimizationContext";
 
 const API_BASE = "http://localhost:5000";
 
@@ -14,7 +14,8 @@ const fmt = (v: number) => {
     : `Rs ${v.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 };
 
-export default function BacktestValidation({ result }: { result: OptResult | null }) {
+export default function BacktestValidation() {
+  const { result } = useOptimization();
   const [backtestData, setBacktestData] = useState<BacktestResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

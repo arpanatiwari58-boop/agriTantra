@@ -7,7 +7,7 @@ import { ValidationRequest, ValidationResponse, ScenarioData, CropName } from ".
 
 const API_BASE = "http://localhost:5000";
 
-export default function RegimeValidation({ result, cropsMeta, onComplete }: { result: OptResult, cropsMeta: any[], onComplete: (res: ValResult) => void }) {
+export default function RegimeValidation({ result, cropsMeta }: { result: OptResult, cropsMeta: any[] }) {
   const [drought, setDrought] = useState(30);
   const [flood, setFlood] = useState(10);
   
@@ -65,7 +65,6 @@ export default function RegimeValidation({ result, cropsMeta, onComplete }: { re
 
       setProgress(100);
       setValResult(newResult);
-      onComplete(newResult);
     } catch (e) {
       console.error(e);
       alert("Climate Regime validation failed.");

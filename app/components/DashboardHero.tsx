@@ -1,12 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { Sprout, Sun, CloudRain, Wind } from "lucide-react";
 
 interface DashboardHeroProps {
   phaseIdx: number;
+  userLabel?: string | null;
+  onSignOut?: () => void | Promise<void>;
 }
 
-export default function DashboardHero({ phaseIdx }: DashboardHeroProps) {
+export default function DashboardHero({ phaseIdx, userLabel, onSignOut }: DashboardHeroProps) {
   const steps = ["Farm Parameters", "WDRO Optimization", "Scenario Validation"];
 
   return (
@@ -28,12 +31,27 @@ export default function DashboardHero({ phaseIdx }: DashboardHeroProps) {
             <div style={{ fontSize: 10, color: "#8A9688", letterSpacing: 1, textTransform: "uppercase" }}>WDRO · Crop Intelligence</div>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
-          {["Dashboard", "History", "About"].map(t => (
-            <span key={t} style={{ fontSize: 13, color: t === "Dashboard" ? "#2D6A2D" : "#8A9688", fontWeight: t === "Dashboard" ? 700 : 400, cursor: "pointer" }}>{t}</span>
-          ))}
-          <div style={{ padding: "7px 16px", borderRadius: 8, background: "#2D6A2D", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Season 2081 BS</div>
-        </div>
+
+        {userLabel ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div style={{ padding: "10px 14px", borderRadius: 999, background: "#F0F9EE", color: "#2D6A2D", fontSize: 13, fontWeight: 700 }}>
+              {userLabel}
+            </div>
+            <button type="button" onClick={onSignOut} style={{ padding: "10px 16px", borderRadius: 12, border: "1px solid #E8E2D8", background: "#fff", color: "#2D6A2D", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+              Sign out
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <Link href="/login" style={{ padding: "10px 16px", borderRadius: 12, border: "1px solid #E8E2D8", background: "#fff", color: "#2D6A2D", textDecoration: "none", fontSize: 13, fontWeight: 700 }}>
+              Login
+            </Link>
+            <Link href="/signup" style={{ padding: "10px 16px", borderRadius: 12, border: "1px solid #E8E2D8", background: "#fff", color: "#2D6A2D", textDecoration: "none", fontSize: 13, fontWeight: 700 }}>
+              Sign Up
+            </Link>
+          </div>
+        )}
+        
       </div>
 
       {/* Hero */}

@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, useState, useEffect } from "react";
+import Link from "next/link";
 import {
   Leaf, Wallet, ShieldAlert, Loader2,
   BarChart3, TrendingDown, Minus, TrendingUp,
@@ -8,6 +9,7 @@ import {
 } from "lucide-react";
 import { OptResult, CropAllocation } from "../types/dashboard";
 import { CropName, SolveResponse } from "../types/api";
+import { useOptimization } from "../context/OptimizationContext";
 
 const fmt = (v: number) => Math.abs(v) >= 100000
   ? `Rs ${(v / 100000).toFixed(2)}L`
@@ -54,7 +56,8 @@ async function runModel(land: number, budget: number, epsilon: number): Promise<
   };
 }
 
-export default function InputsAndResults({ onResult }: { onResult?: (res: OptResult) => void }) {
+export default function InputsAndResults() {
+  const { setResult: setContextResult } = useOptimization();
   const [land, setLand] = useState("4");
   const [budget, setBudget] = useState("400000");
   const [epsilon, setEpsilon] = useState(5);
@@ -81,12 +84,8 @@ export default function InputsAndResults({ onResult }: { onResult?: (res: OptRes
       const modelResult = await runModel(l, b, epsilon);
 
       setResult(modelResult);
+      setContextResult(modelResult); // Store in context
       setPhase("result");
-      
-      // Notify parent to propagate result down to validation components
-      if (onResult) {
-        onResult(modelResult);
-      }
     } catch (error) {
       console.error("Optimization failed:", error);
       setPhase("input"); // Reset on error
@@ -178,7 +177,7 @@ export default function InputsAndResults({ onResult }: { onResult?: (res: OptRes
             </div>
           </div>
           <input
-            type="range" min="0" max="5" step="0.2"
+            type="range" min="0" max="5" step="0.1"
             value={epsilon} onChange={(e) => setEpsilon(parseFloat(e.target.value))}
             disabled={phase === "solving"}
             style={{ width: "100%", height: 6, borderRadius: 3, background: "#E8E2D8", appearance: "none", cursor: "pointer", outline: "none" }}
@@ -276,6 +275,10 @@ export default function InputsAndResults({ onResult }: { onResult?: (res: OptRes
                 </div>
               ))}
             </div>
+
+            <Link href="/validation" target="_blank" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 32, padding: "14px 0", background: "#4CAF50", border: "none", borderRadius: 14, fontSize: 15, fontWeight: 700, color: "#fff", cursor: "pointer", textDecoration: "none", transition: "all 0.2s" }}>
+              <FlaskConical size={18} /> Validate Strategy
+            </Link>
           </div>
         </div>
       )}

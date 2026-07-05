@@ -7,7 +7,7 @@ import { ValidationRequest, ValidationResponse, ScenarioData, CropName } from ".
 
 const API_BASE = "http://localhost:5000";
 
-export default function BaselineValidation({ result, cropsMeta, onComplete }: { result: OptResult, cropsMeta: any[], onComplete: (res: ValResult) => void }) {
+export default function BaselineValidation({ result, cropsMeta }: { result: OptResult, cropsMeta: any[] }) {
   const [shiftPerc, setShiftPerc] = useState(10);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -65,7 +65,6 @@ export default function BaselineValidation({ result, cropsMeta, onComplete }: { 
       
       setProgress(100);
       setValResult(newResult);
-      onComplete(newResult);
     } catch (e) {
       console.error(e);
       alert("Baseline validation failed.");

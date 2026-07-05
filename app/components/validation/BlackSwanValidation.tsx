@@ -7,7 +7,7 @@ import { ValidationRequest, ValidationResponse, ScenarioData, CropName } from ".
 
 const API_BASE = "http://localhost:5000";
 
-export default function BlackSwanValidation({ result, cropsMeta, onComplete }: { result: OptResult, cropsMeta: any[], onComplete: (res: ValResult) => void }) {
+export default function BlackSwanValidation({ result, cropsMeta }: { result: OptResult, cropsMeta: any[] }) {
   const [swanYield, setSwanYield] = useState(50);
   const [swanPrice, setSwanPrice] = useState(30);
   
@@ -62,7 +62,6 @@ export default function BlackSwanValidation({ result, cropsMeta, onComplete }: {
 
       setProgress(100);
       setValResult(newResult);
-      onComplete(newResult);
     } catch (e) {
       console.error(e);
       alert("Black Swan validation failed.");

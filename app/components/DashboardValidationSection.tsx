@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { ArrowDown, Activity, CloudRain, AlertTriangle } from "lucide-react";
-import { OptResult, ValResult } from "../types/dashboard";
+import { ValResult } from "../types/dashboard";
 import { CropName } from "../types/api";
+import { useOptimization } from "../context/OptimizationContext";
 
 import BaselineValidation from "./validation/BaselineValidation";
 import VolatilityValidation from "./validation/VolatilityValidation";
 import RegimeValidation from "./validation/RegimeValidation";
-import BlackSwanValidation from "./validation/BlackSwanValidation";
 
 type ValidationMode = "baseline" | "volatility" | "regime" | "swan";
 
@@ -22,13 +22,8 @@ const CROPS: Array<{ name: CropName; cost: number; color: string; emoji: string 
   { name: "Moong Dal", cost: 27000, color: "#9DC45A", emoji: "🌱" },
 ];
 
-export default function DashboardValidationSection({
-  result,
-  onComplete,
-}: {
-  result: OptResult | null;
-  onComplete?: (res: ValResult) => void;
-}) {
+export default function DashboardValidationSection() {
+  const { result } = useOptimization();
   const [activeMode, setActiveMode] = useState<ValidationMode>("baseline");
 
   if (!result) return null;
@@ -37,7 +32,6 @@ export default function DashboardValidationSection({
     { id: "baseline", label: "Baseline Shift", icon: ArrowDown, color: "#D4893A" },
     { id: "volatility", label: "Volatility", icon: Activity, color: "#4A6FA5" },
     { id: "regime", label: "Climate Regimes", icon: CloudRain, color: "#5A8F74" },
-    { id: "swan", label: "Black Swan", icon: AlertTriangle, color: "#B33939" },
   ] as const;
 
   return (
@@ -76,17 +70,17 @@ export default function DashboardValidationSection({
 
       <div style={{ minHeight: 300 }}>
         {activeMode === "baseline" && (
-          <BaselineValidation result={result} cropsMeta={CROPS} onComplete={onComplete || (() => {})} />
+          <BaselineValidation result={result} cropsMeta={CROPS} />
         )}
         {activeMode === "volatility" && (
-          <VolatilityValidation result={result} cropsMeta={CROPS} onComplete={onComplete || (() => {})} />
+          <VolatilityValidation result={result} cropsMeta={CROPS} />
         )}
         {activeMode === "regime" && (
-          <RegimeValidation result={result} cropsMeta={CROPS} onComplete={onComplete || (() => {})} />
+          <RegimeValidation result={result} cropsMeta={CROPS} />
         )}
-        {activeMode === "swan" && (
-          <BlackSwanValidation result={result} cropsMeta={CROPS} onComplete={onComplete || (() => {})} />
-        )}
+        {/* {activeMode === "swan" && (
+          <BlackSwanValidation result={result} cropsMeta={CROPS} />
+        )} */}
       </div>
     </div>
   );

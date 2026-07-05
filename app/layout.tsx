@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Cormorant_Garamond, Inter } from "next/font/google";
 import "./globals.css";
+import { OptimizationProvider } from "./context/OptimizationContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -39,7 +40,11 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${cormorant.variable} ${inter.variable} h-full antialiased`}
     >   
     
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <OptimizationProvider>
+          {children}
+        </OptimizationProvider>
+      </body>
 
     </html>
   );
