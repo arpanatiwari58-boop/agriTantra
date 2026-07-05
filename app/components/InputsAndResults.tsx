@@ -15,7 +15,7 @@ const fmt = (v: number) => Math.abs(v) >= 100000
   ? `Rs ${(v / 100000).toFixed(2)}L`
   : `Rs ${v.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "https://python-project.sphirontech.com";
 
 const CROPS: Array<{ name: CropName; cost: number; color: string; emoji: string }> = [
   { name: "LR Rice (Sub1)", cost: 50000, color: "#E8A045", emoji: "🌾" },

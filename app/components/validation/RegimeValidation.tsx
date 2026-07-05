@@ -5,7 +5,7 @@ import { ChevronRight, Loader2, Info, CloudRain, Sun } from "lucide-react";
 import { OptResult, ValResult } from "../../types/dashboard";
 import { ValidationRequest, ValidationResponse, ScenarioData, CropName } from "../../types/api";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "https://python-project.sphirontech.com";
 
 export default function RegimeValidation({ result, cropsMeta }: { result: OptResult, cropsMeta: any[] }) {
   const [drought, setDrought] = useState(30);

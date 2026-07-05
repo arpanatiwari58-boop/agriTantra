@@ -5,7 +5,7 @@ import { BacktestResponse, BacktestRequest, CropName } from "../types/api";
 import { Loader2, TrendingUp, History, CloudSun, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useOptimization } from "../context/OptimizationContext";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "https://python-project.sphirontech.com";
 
 const fmt = (v: number) => {
   if (v === undefined || isNaN(v)) return "N/A";
